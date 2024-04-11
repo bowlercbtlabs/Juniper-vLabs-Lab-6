@@ -188,8 +188,96 @@ set security nat destination rule-set DMZSERVER2_RS from zone untrust
 set security nat destination rule-set DMZSERVER2_RS rule DMZSERVER2_RL match destination-address 2.2.2.2/32
 set security nat destination rule-set DMZSERVER2_RS rule DMZSERVER2_RL then destination-nat pool DMZSERVER2_PL
 
-11) Lets try our connections now to Server2, we'll use the ping and ssh command, then we'll use the telnet 
+11) Lets try our connections now from Host3 to Server2, we'll use the ping and ssh command, then we'll use the telnet 
 command to simulate port 443 (https) traffic:
 
+**** First lets clear the statistics on the destination NAT rule ****
+
+jcluser@vSRX1> clear security nat statistics destination rule all  
+
+**** Ping FROM Host3 to Server2 ****
+
+jcluser@Host3> ping 2.2.2.2 rapid count 10    
+PING 2.2.2.2 (2.2.2.2): 56 data bytes
+!!!!!!!!!!
+--- 2.2.2.2 ping statistics ---
+10 packets transmitted, 10 packets received, 0% packet loss
+round-trip min/avg/max/stddev = 1.394/1.736/2.419/0.306 ms
+
+jcluser@vSRX1> show security flow session | refresh                  
+---(refreshed at 2024-04-11 23:10:03 UTC)---
+Total sessions: 0
+---(refreshed at 2024-04-11 23:10:08 UTC)---
+Session ID: 1006, Policy name: to_web_server/4, State: Stand-alone, Timeout: 2, Valid
+  In: 200.0.13.2/18465 --> 2.2.2.2/0;icmp, Conn Tag: 0x0, If: ge-0/0/2.0, Pkts: 1, Bytes: 84, 
+  Out: 10.100.12.2/0 --> 200.0.13.2/18465;icmp, Conn Tag: 0x0, If: ge-0/0/1.0, Pkts: 1, Bytes: 84, 
+
+jcluser@vSRX1> show security nat destination rule DMZSERVER2_RL 
+Destination NAT rule: DMZSERVER2_RL          Rule-set: DMZSERVER_RS
+  Rule-Id                    : 3
+  Rule position              : 2
+  From zone                  : untrust
+    Destination addresses    : 2.2.2.2         - 2.2.2.2
+  Action                     : DMZSERVER2_PL
+  Translation hits           : 10
+    Successful sessions      : 10
+  Number of sessions         : 0
 
 
+**** SSH FROM Host3 to Server2 ****
+
+jcluser@Host3> ssh 2.2.2.2                    
+The authenticity of host '2.2.2.2 (2.2.2.2)' can't be established.
+ECDSA key fingerprint is SHA256:aGF721Rr++omV2vC4OFKqC9VYm+HzbqWXbH/WtFlmJ0.
+Are you sure you want to continue connecting (yes/no)?
+
+jcluser@vSRX1> show security flow session | refresh                
+---(refreshed at 2024-04-11 23:11:57 UTC)---
+Total sessions: 0
+---(refreshed at 2024-04-11 23:12:02 UTC)---
+Session ID: 1016, Policy name: to_web_server/4, State: Stand-alone, Timeout: 1800, Valid
+  In: 200.0.13.2/61312 --> 2.2.2.2/22;tcp, Conn Tag: 0x0, If: ge-0/0/2.0, Pkts: 6, Bytes: 1785, 
+  Out: 10.100.12.2/22 --> 200.0.13.2/61312;tcp, Conn Tag: 0x0, If: ge-0/0/1.0, Pkts: 4, Bytes: 1581, 
+Total sessions: 1
+
+
+jcluser@vSRX1> show security nat destination rule DMZSERVER2_RL    
+Destination NAT rule: DMZSERVER2_RL          Rule-set: DMZSERVER_RS
+  Rule-Id                    : 3
+  Rule position              : 2
+  From zone                  : untrust
+    Destination addresses    : 2.2.2.2         - 2.2.2.2
+  Action                     : DMZSERVER2_PL
+  Translation hits           : 11
+    Successful sessions      : 11
+  Number of sessions         : 0
+
+
+**** Simulated https/443 connection FROM Host3 to Server2 ****
+
+jcluser@Host3> telnet 2.2.2.2 port 443        
+Trying 2.2.2.2...
+telnet: connect to address 2.2.2.2: Connection refused
+telnet: Unable to connect to remote host
+
+jcluser@vSRX1> show security flow session | refresh   
+
+Session ID: 1019, Policy name: to_web_server/4, State: Stand-alone, Timeout: 2, Valid
+  In: 200.0.13.2/52263 --> 2.2.2.2/443;tcp, Conn Tag: 0x0, If: ge-0/0/2.0, Pkts: 1, Bytes: 64, 
+  Out: 10.100.12.2/443 --> 200.0.13.2/52263;tcp, Conn Tag: 0x0, If: ge-0/0/1.0, Pkts: 1, Bytes: 40, 
+Total sessions: 1
+
+jcluser@vSRX1> show security nat destination rule DMZSERVER2_RL    
+Destination NAT rule: DMZSERVER2_RL          Rule-set: DMZSERVER_RS
+  Rule-Id                    : 3
+  Rule position              : 2
+  From zone                  : untrust
+    Destination addresses    : 2.2.2.2         - 2.2.2.2
+  Action                     : DMZSERVER2_PL
+  Translation hits           : 12
+    Successful sessions      : 12
+  Number of sessions         : 0
+
+
+12) We can see that the traffic is now hitting the two different DMZ Servers using the Destination NAT policies
+we applied to the firewall. Congratulations, you have completed the lab!
