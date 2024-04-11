@@ -15,3 +15,106 @@ set interfaces ge-0/0/2 unit 0 family inet address 200.0.13.2/30
 vSRX:
 delete interfaces ge-0/0/2.0 family inet address 10.100.13.1/24
 set interfaces ge-0/0/2 unit 0 family inet address 200.0.13.1/30
+
+3) We do this to simulate the connection between Host3 and the vSRX being a publicly routed, external subnet. Now lets add a 
+static route in Host3 to simulate reachability to Server1 and Server2 via the internet. The whole purpose of this lab is to
+create a destination NAT policy which hides/translates the DMZ servers internal IP's from the internet. 
+
+
+jcluser@Host3> show route 
+
+inet.0: 5 destinations, 5 routes (5 active, 0 holddown, 0 hidden)
++ = Active Route, - = Last Active, * = Both
+
+0.0.0.0/0          *[Static/5] 00:22:03
+                    > to 100.123.0.1 via fxp0.0
+100.123.0.0/16     *[Direct/0] 00:22:03
+                    > via fxp0.0
+100.123.1.2/32     *[Local/0] 00:22:03
+                      Local via fxp0.0
+200.0.13.0/30      *[Direct/0] 00:08:34
+                    > via ge-0/0/2.0
+200.0.13.2/32      *[Local/0] 00:08:34
+                      Local via ge-0/0/2.0
+
+
+jcluser@Host3# set routing-options static route 1.1.1.0/24 next-hop 200.0.13.1    
+jcluser@Host3# set routing-options static route 2.2.2.0/24 next-hop 200.0.13.1   
+
+4) Lets now add the loopback interface on the firewall to simulate the webserver connection points.
+
+jcluser@vSRX1# set interfaces lo0.0 family inet address 1.1.1.1/24 
+jcluser@vSRX1# set interfaces lo0.0 family inet address 2.2.2.2/24   
+
+5) Next lets add the security policy from the untrust zone to the DMZ to allow the traffic from the external client, Host3.
+
+set security zones security-zone dmz address-book address DMZ_SERVER1 10.100.11.2/32
+set security zones security-zone dmz address-book address DMZ_SERVER2 10.100.12.2/32
+
+set security policies from-zone untrust to-zone dmz policy to_web_server match source-address any
+set security policies from-zone untrust to-zone dmz policy to_web_server match destination-address DMZ_SERVER1
+set security policies from-zone untrust to-zone dmz policy to_web_server match destination-address DMZ_SERVER2
+set security policies from-zone untrust to-zone dmz policy to_web_server match application junos-https
+set security policies from-zone untrust to-zone dmz policy to_web_server match application junos-ssh
+set security policies from-zone untrust to-zone dmz policy to_web_server match application junos-ping
+set security policies from-zone untrust to-zone dmz policy to_web_server then permit
+
+6) Lets now add a route in Server1 and Server2 to the external/untrust subnet of 200.0.13.0/30. This is to simulate
+reachabilty from inside the DMZ to the internet.
+
+jcluser@Server1# set routing-options static route 200.0.13.0/30 next-hop 10.100.11.1 
+jcluser@Server2# set routing-options static route 200.0.13.0/30 next-hop 10.100.12.1    
+
+7) Lets now add our Destination NAT policy on the firewall for Server1.
+
+set security nat destination pool DMZSERVER1_PL address 10.100.11.2/32
+set security nat destination rule-set DMZSERVER1_RS from zone untrust
+set security nat destination rule-set DMZSERVER1_RS rule DMZSERVER1_RL match destination-address 1.1.1.1/32
+set security nat destination rule-set DMZSERVER1_RS rule DMZSERVER1_RL then destination-nat pool DMZSERVER1_PL
+
+8) Lets try to our connections now to Server1, we'll use the telnet command to simulate port 22 and 443 traffic:
+
+jcluser@Host3> ping 1.1.1.1 rapid count 10     
+PING 1.1.1.1 (1.1.1.1): 56 data bytes
+!!!!!!!!!!
+--- 1.1.1.1 ping statistics ---
+10 packets transmitted, 10 packets received, 0% packet loss
+round-trip min/avg/max/stddev = 1.550/1.817/2.305/0.222 ms
+
+jcluser@vSRX1> show security flow session    
+Session ID: 914, Policy name: to_web_server/4, State: Stand-alone, Timeout: 2, Valid
+  In: 200.0.13.2/42272 --> 1.1.1.1/0;icmp, Conn Tag: 0x0, If: ge-0/0/2.0, Pkts: 1, Bytes: 84, 
+  Out: 10.100.11.2/0 --> 200.0.13.2/42272;icmp, Conn Tag: 0x0, If: ge-0/0/0.0, Pkts: 1, Bytes: 84, 
+
+jcluser@vSRX1> show security nat destination rule all                
+Total destination-nat rules: 1
+Total referenced IPv4/IPv6 ip-prefixes: 1/0
+Destination NAT rule: DMZSERVER1_RL          Rule-set: DMZSERVER1_RS
+  Rule-Id                    : 1
+  Rule position              : 1
+  From zone                  : untrust
+    Destination addresses    : 1.1.1.1         - 1.1.1.1
+  Action                     : DMZSERVER1_PL
+  Translation hits           : 10
+    Successful sessions      : 10
+  Number of sessions         : 10
+
+jcluser@Host3> telnet 1.1.1.1 port 22 
+Trying 1.1.1.1...
+Connected to 1.1.1.1.
+Escape character is '^]'.
+SSH-2.0-OpenSSH_7.2
+
+jcluser@vSRX1> show security flow session                            
+Session ID: 934, Policy name: to_web_server/4, State: Stand-alone, Timeout: 1790, Valid
+  In: 200.0.13.2/61941 --> 1.1.1.1/22;tcp, Conn Tag: 0x0, If: ge-0/0/2.0, Pkts: 3, Bytes: 168, 
+  Out: 10.100.11.2/22 --> 200.0.13.2/61941;tcp, Conn Tag: 0x0, If: ge-0/0/0.0, Pkts: 2, Bytes: 137, 
+Total sessions: 1
+
+
+
+
+
+
+
+
