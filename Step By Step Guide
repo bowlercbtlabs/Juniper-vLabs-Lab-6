@@ -188,7 +188,7 @@ set security nat destination rule-set DMZSERVER2_RS from zone untrust
 set security nat destination rule-set DMZSERVER2_RS rule DMZSERVER2_RL match destination-address 2.2.2.2/32
 set security nat destination rule-set DMZSERVER2_RS rule DMZSERVER2_RL then destination-nat pool DMZSERVER2_PL
 
-8) Lets try our connections now to Server2, we'll use the ping and ssh command, then we'll use the telnet 
+11) Lets try our connections now to Server2, we'll use the ping and ssh command, then we'll use the telnet 
 command to simulate port 443 (https) traffic:
 
 
