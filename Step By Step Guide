@@ -72,7 +72,10 @@ set security nat destination rule-set DMZSERVER1_RS from zone untrust
 set security nat destination rule-set DMZSERVER1_RS rule DMZSERVER1_RL match destination-address 1.1.1.1/32
 set security nat destination rule-set DMZSERVER1_RS rule DMZSERVER1_RL then destination-nat pool DMZSERVER1_PL
 
-8) Lets try to our connections now to Server1, we'll use the telnet command to simulate port 22 and 443 traffic:
+8) Lets try to our connections now to Server1, we'll use the ping and ssh command, then we'll use the telnet 
+command to simulate port 443 (https) traffic:
+
+**** Ping FROM Host3 to Server1 ****
 
 jcluser@Host3> ping 1.1.1.1 rapid count 10     
 PING 1.1.1.1 (1.1.1.1): 56 data bytes
@@ -99,7 +102,27 @@ Destination NAT rule: DMZSERVER1_RL          Rule-set: DMZSERVER1_RS
     Successful sessions      : 10
   Number of sessions         : 10
 
-jcluser@Host3> telnet 1.1.1.1 port 22 
+
+jcluser@Server1> monitor interface ge-0/0/0 
+
+Interface: ge-0/0/0, Enabled, Link is Up
+Encapsulation: Ethernet, Speed: 1000mbps
+Traffic statistics:Current delta
+Input bytes:892 (0 bps)   [892]
+Output bytes:912 (0 bps)   [912]
+Input packets:11 (0 pps)[11]
+Output packets:11 (0 pps)[11]
+Error statistics:
+Input errors:0[0]
+Input drops:0[0]
+Input framing errors:0[0]
+Carrier transitions:0[0]
+Output errors:0[0]
+Output drops:0[0]
+
+**** SSH FROM Host3 to Server1 ****
+
+jcluser@Host3> ssh 1.1.1.1 
 Trying 1.1.1.1...
 Connected to 1.1.1.1.
 Escape character is '^]'.
@@ -111,10 +134,62 @@ Session ID: 934, Policy name: to_web_server/4, State: Stand-alone, Timeout: 1790
   Out: 10.100.11.2/22 --> 200.0.13.2/61941;tcp, Conn Tag: 0x0, If: ge-0/0/0.0, Pkts: 2, Bytes: 137, 
 Total sessions: 1
 
+jcluser@vSRX1> show security nat destination rule all                
+Total destination-nat rules: 1
+Total referenced IPv4/IPv6 ip-prefixes: 1/0
+Destination NAT rule: DMZSERVER1_RL          Rule-set: DMZSERVER1_RS
+  Rule-Id                    : 1
+  Rule position              : 1
+  From zone                  : untrust
+    Destination addresses    : 1.1.1.1         - 1.1.1.1
+  Action                     : DMZSERVER1_PL
+  Translation hits           : 11
+    Successful sessions      : 11
+  Number of sessions         : 11
 
 
+**** Simulated https/443 connection FROM Host3 to Server1 ****
+
+jcluser@Host3> telnet 1.1.1.1 port 443   
+Trying 1.1.1.1...
+telnet: connect to address 1.1.1.1: Connection refused
+telnet: Unable to connect to remote host
 
 
+jcluser@vSRX1> show security flow session | refresh 
+---(refreshed at 2024-04-11 22:45:28 UTC)---
+Total sessions: 0
+tate: Stand-alone, Timeout: 2, Valid
+  In: 200.0.13.2/58916 --> 1.1.1.1/443;tcp, Conn Tag: 0x0, If: ge-0/0/2.0, Pkts: 1, Bytes: 64, 
+  Out: 10.100.11.2/443 --> 200.0.13.2/58916;tcp, Conn Tag: 0x0, If: ge-0/0/0.0, Pkts: 1, Bytes: 40, 
+
+
+jcluser@vSRX1> show security nat destination rule all                
+Total destination-nat rules: 1
+Total referenced IPv4/IPv6 ip-prefixes: 1/0
+Destination NAT rule: DMZSERVER1_RL          Rule-set: DMZSERVER1_RS
+  Rule-Id                    : 1
+  Rule position              : 1
+  From zone                  : untrust
+    Destination addresses    : 1.1.1.1         - 1.1.1.1
+  Action                     : DMZSERVER1_PL
+  Translation hits           : 12
+    Successful sessions      : 12
+  Number of sessions         : 12
+
+9) As we can see from the output, all our traffic is working as desired. We see the destination NAT policy being hit,
+we see with the security flow session command bidirection traffic flows and we can see from Server1 that traffic is
+incrementing on its interface with the IP of 10.100.11.2. 
+
+10) Lets now add our Destination NAT policy on the firewall for Server2.
+
+set security nat destination pool DMZSERVER2_PL address 10.100.12.2/32
+set security nat destination rule-set DMZSERVER2_RS from zone untrust
+set security nat destination rule-set DMZSERVER2_RS rule DMZSERVER2_RL match destination-address 2.2.2.2/32
+set security nat destination rule-set DMZSERVER2_RS rule DMZSERVER2_RL then destination-nat pool DMZSERVER2_PL
+
+8) Lets try our connections now to Server2, we'll use the ping and ssh command, then we'll use the telnet 
+command to simulate port 443 (https) traffic:
 
 
 
