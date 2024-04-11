@@ -1,0 +1,17 @@
+Juniper vLabs Lab 6 (Network Address Translation, Destination NAT)
+
+Step By Step Guide:
+
+1) Login to vLabs and Reserve/Launch the Lab (should take a few minutes to start up).
+    - https://jlabs.juniper.net/vlabs/portal/zones-policies/
+
+2) Lets start by changing the IP addresses on the interfaces between the vSRX and Host3.
+
+Host3:
+delete interfaces ge-0/0/2.0 family inet address 10.100.13.2/24 
+set interfaces ge-0/0/2 unit 0 family inet address 200.0.13.2/30
+
+
+vSRX:
+delete interfaces ge-0/0/2.0 family inet address 10.100.13.1/24
+set interfaces ge-0/0/2 unit 0 family inet address 200.0.13.1/30
