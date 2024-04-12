@@ -51,8 +51,20 @@ jcluser@vSRX1# set interfaces lo0.0 family inet address 2.2.2.2/24
 Lets create the address-book entries first. These identify the web servers private IP addresse. We use these addresses 
 inside the security policy. 
 
+*** Lets first look at the current security zones ***
+
+jcluser@vSRX1> show configuration security zones | display set 
+set security zones security-zone dmz host-inbound-traffic system-services any-service
+set security zones security-zone dmz interfaces ge-0/0/0.0
+set security zones security-zone dmz interfaces ge-0/0/1.0
+set security zones security-zone untrust interfaces ge-0/0/2.0
+
+*** Now lets add the address-book ***
+
 set security zones security-zone dmz address-book address DMZ_SERVER1 10.100.11.2/32
 set security zones security-zone dmz address-book address DMZ_SERVER2 10.100.12.2/32
+
+*** Lets add the security policy to allow the inbound traffic from the internet/untrust to the DMZ ***
 
 set security policies from-zone untrust to-zone dmz policy to_web_server match source-address any
 set security policies from-zone untrust to-zone dmz policy to_web_server match destination-address DMZ_SERVER1
