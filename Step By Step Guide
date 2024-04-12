@@ -41,12 +41,15 @@ inet.0: 5 destinations, 5 routes (5 active, 0 holddown, 0 hidden)
 jcluser@Host3# set routing-options static route 1.1.1.0/24 next-hop 200.0.13.1    
 jcluser@Host3# set routing-options static route 2.2.2.0/24 next-hop 200.0.13.1   
 
-4) Lets now add the loopback interface on the firewall to simulate the webserver connection points.
+4) Lets now add the loopback interface on the firewall to simulate the publicly 
+accessible webserver connection points.
 
 jcluser@vSRX1# set interfaces lo0.0 family inet address 1.1.1.1/24 
 jcluser@vSRX1# set interfaces lo0.0 family inet address 2.2.2.2/24   
 
-5) Next lets add the security policy from the untrust zone to the DMZ to allow the traffic from the external client, Host3.
+5) Next lets add the security policy from the untrust zone to the DMZ to allow the traffic from the external client, Host3. 
+Lets create the address-book entries first. These identify the web servers private IP addresse. We use these addresses 
+inside the security policy. 
 
 set security zones security-zone dmz address-book address DMZ_SERVER1 10.100.11.2/32
 set security zones security-zone dmz address-book address DMZ_SERVER2 10.100.12.2/32
@@ -65,12 +68,14 @@ reachabilty from inside the DMZ to the internet.
 jcluser@Server1# set routing-options static route 200.0.13.0/30 next-hop 10.100.11.1 
 jcluser@Server2# set routing-options static route 200.0.13.0/30 next-hop 10.100.12.1    
 
-7) Lets now add our Destination NAT policy on the firewall for Server1.
+7) Lets now add our Destination NAT policy on the firewall for Server1. We create the pool first, which we identify Server1's 
+IP address. Next we create the NAT Rule set where we create the mapping from Server1's private IP address to the public IP 
+address we want. 
 
 set security nat destination pool DMZSERVER1_PL address 10.100.11.2/32
-set security nat destination rule-set DMZSERVER1_RS from zone untrust
-set security nat destination rule-set DMZSERVER1_RS rule DMZSERVER1_RL match destination-address 1.1.1.1/32
-set security nat destination rule-set DMZSERVER1_RS rule DMZSERVER1_RL then destination-nat pool DMZSERVER1_PL
+set security nat destination rule-set DMZSERVER_RS from zone untrust
+set security nat destination rule-set DMZSERVER_RS rule DMZSERVER1_RL match destination-address 1.1.1.1/32
+set security nat destination rule-set DMZSERVER_RS rule DMZSERVER1_RL then destination-nat pool DMZSERVER1_PL
 
 8) Lets try to our connections now to Server1, we'll use the ping and ssh command, then we'll use the telnet 
 command to simulate port 443 (https) traffic:
@@ -184,9 +189,9 @@ incrementing on its interface with the IP of 10.100.11.2.
 10) Lets now add our Destination NAT policy on the firewall for Server2.
 
 set security nat destination pool DMZSERVER2_PL address 10.100.12.2/32
-set security nat destination rule-set DMZSERVER2_RS from zone untrust
-set security nat destination rule-set DMZSERVER2_RS rule DMZSERVER2_RL match destination-address 2.2.2.2/32
-set security nat destination rule-set DMZSERVER2_RS rule DMZSERVER2_RL then destination-nat pool DMZSERVER2_PL
+set security nat destination rule-set DMZSERVER_RS from zone untrust
+set security nat destination rule-set DMZSERVER_RS rule DMZSERVER2_RL match destination-address 2.2.2.2/32
+set security nat destination rule-set DMZSERVER_RS rule DMZSERVER2_RL then destination-nat pool DMZSERVER2_PL
 
 11) Lets try our connections now from Host3 to Server2, we'll use the ping and ssh command, then we'll use the telnet 
 command to simulate port 443 (https) traffic:
