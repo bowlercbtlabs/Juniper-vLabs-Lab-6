@@ -64,7 +64,8 @@ set security zones security-zone untrust interfaces ge-0/0/2.0
 set security zones security-zone dmz address-book address DMZ_SERVER1 10.100.11.2/32
 set security zones security-zone dmz address-book address DMZ_SERVER2 10.100.12.2/32
 
-*** Lets add the security policy to allow the inbound traffic from the internet/untrust to the DMZ ***
+*** Lets add the security policy to allow the inbound traffic from the internet/untrust to the DMZ. This policy is needed to allow
+the traffic. ***
 
 set security policies from-zone untrust to-zone dmz policy to_web_server match source-address any
 set security policies from-zone untrust to-zone dmz policy to_web_server match destination-address DMZ_SERVER1
@@ -195,7 +196,7 @@ Destination NAT rule: DMZSERVER1_RL          Rule-set: DMZSERVER1_RS
   Number of sessions         : 12
 
 9) As we can see from the output, all our traffic is working as desired. We see the destination NAT policy being hit,
-we see with the security flow session command bidirection traffic flows and we can see from Server1 that traffic is
+we see with the security flow session command bidirectional traffic flows and we can see from Server1 that traffic is
 incrementing on its interface with the IP of 10.100.11.2. 
 
 10) Lets now add our Destination NAT policy on the firewall for Server2.
